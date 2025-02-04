@@ -17,6 +17,7 @@ import Image from "next/image";
 import { useWallet } from "@/app/event/context/WalletContext";
 import { UserAvatar } from "@/components/UserAvatar";
 import Link from "next/link";
+import { toast } from "@/hook/use-toast";
 
 const TOTAL_CELLS = 100;
 // const MOVE_DELAY = 300;
@@ -299,34 +300,17 @@ export default function JumpingGame({
   const rollDice = useCallback(async () => {
     if (gameCompleted) return;
 
-    const updateScore = async (
-      walletAddress: string,
-      score: number,
-      freeAttemptsToday: number,
-      remainingTimes: number
-    ) => {
+    const updateScore = async (walletAddress: string, score: number) => {
       const newScore = score;
 
-      if (freeAttemptsToday === 0 && remainingTimes <= 0) {
-        const paymentSuccess = await payTokens(walletAddress, 10); // 支付0.001代币
-        if (paymentSuccess) {
-          // 代币支付后更新积分
-          await updateUserScore(walletAddress, newScore);
-          onScoreChange(newScore);
-          console.log("积分更新成功");
-        } else {
-          console.error("代币支付失败，无法更新积分");
-        }
-      } else {
-        // 免费更新积分
-        await updateUserScore(walletAddress, newScore);
-        onScoreChange(newScore);
-        console.log("免费积分更新成功");
-      }
+      await updateUserScore(walletAddress, newScore);
+      onScoreChange(newScore);
     };
 
     if (!walletAddress) {
-      alert("钱包地址无效，请连接钱包！");
+      toast({
+        title: "钱包地址无效，请连接钱包！",
+      });
       return; // 如果没有钱包地址，终止函数
     }
 
@@ -348,9 +332,11 @@ export default function JumpingGame({
 
     // 如果没有免费次数和剩余次数，则需要支付代币购买
     if (freeAttemptsToday === 0 && remainingTimes <= 0) {
-      const paymentSuccess = await payTokens(walletAddress, 0.001); // 支付10代币
+      const paymentSuccess = await payTokens(walletAddress, 10); // 支付10代币
       if (!paymentSuccess) {
-        alert("代币支付失败，无法继续摇骰子！");
+        toast({
+          title: "代币支付失败，无法继续摇骰子！",
+        });
         return; // 支付失败则终止函数执行
       }
     } else if (freeAttemptsToday > 0) {
@@ -368,7 +354,10 @@ export default function JumpingGame({
       onRemainingTimesChange(updatedRemainingTimes);
     } else {
       // 没有剩余次数和免费次数
-      alert("提示：您今天的免费次数已用完，接下来要使用普通次数了。");
+      toast({
+        title: "您今天的免费次数已用完，之后将使用普通次数。",
+        description: "提示：请再次点击摇骰子继续游戏",
+      });
       return; // 终止函数执行
     }
 
@@ -399,19 +388,27 @@ export default function JumpingGame({
     setPlayerPosition(newPosition);
     await updateCurrentPosition(walletAddress, newPosition);
 
-    const cell = board.find(
-      (cell) => cell.number === newPosition && !cell.isEmpty
+    let cell = board.find(
+      (cell) => cell.number === newDiceValue && !cell.isEmpty
     )!;
+
+    if (cell.type === "surprise") {
+      // 如果当前玩家位置为“惊喜”类型，则更新积分为惊喜积分+(普通积分-1)
+      const newScore = cell.number + (newDiceValue - 1);
+      cell = board.find(
+        (cell) => cell.number === newScore && !cell.isEmpty
+      )!;
+      updateScore(walletAddress, score + newScore);
+    } else {
+      if (cell.type === "normal") {
+        cell = board.find(
+          (cell) => cell.number === newDiceValue && !cell.isEmpty
+        )!;
+        updateScore(walletAddress, score + newDiceValue);
+      }
+    }
     setCurrentCell(cell);
     setDialogOpen(true);
-
-    // 更新积分
-    updateScore(
-      walletAddress,
-      score + newDiceValue,
-      freeAttemptsToday,
-      remainingTimes
-    );
 
     setLoading(false);
   }, [
@@ -497,9 +494,9 @@ export default function JumpingGame({
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         transition={{ duration: 0.3 }}
-                        className="relative inset-0 flex items-center justify-center bg-[url('/avater.png')] bg-cover bg-center bg-[length:150%]"
+                        className="relative inset-0 flex items-center justify-center"
                       >
-                        <UserAvatar address={walletAddress!} size={48} />
+                        <UserAvatar address={walletAddress!} size={32} />
                         {/* <Image
                           src="/avater.png"
                           width={48}
@@ -531,11 +528,7 @@ export default function JumpingGame({
       <div className="flex justify-center space-x-4 mt-4">
         <Button
           onClick={rollDice}
-          disabled={
-            playerPosition === TOTAL_CELLS ||
-            loading ||
-            gameCompleted
-          }
+          disabled={playerPosition === TOTAL_CELLS || loading || gameCompleted}
           className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white"
           size="lg"
         >
@@ -562,7 +555,7 @@ export default function JumpingGame({
         <div className="mt-4 text-center">
           <h2 className="text-2xl font-bold mb-2">恭喜您通关游戏！</h2>
           <p className="mb-4">您已经到达终点，请前往奖励中心兑换您的奖励。</p>
-          <Link href="/event/rewards" passHref>
+          <Link href="/rewards" passHref>
             <Button className="bg-green-500 hover:bg-green-600 text-white">
               进入奖励中心
             </Button>

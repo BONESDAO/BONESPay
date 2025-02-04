@@ -6,6 +6,7 @@ import { Background } from "@/components/ui/backgroud";
 import { WalletProvider } from "./context/WalletContext";
 import { Toaster } from "@/components/ui/toaster";
 import localFont from "next/font/local";
+import ScrollingLogoBanner from "@/components/ScrollingLogo";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -35,13 +36,14 @@ export default function RootLayout({
       )}
     >
       <WalletProvider>
-        <div className="w-full min-h-[6vh]">
-          <Navbar />
-        </div>
-        <Background />
-        {children}
-        <Toaster />
-      </WalletProvider>
+          <ScrollingLogoBanner />
+          <div className="w-full min-h-[6vh]">
+            <Navbar />
+          </div>
+          <Background />
+          {children}
+          <Toaster />
+        </WalletProvider>
     </div>
   );
 }

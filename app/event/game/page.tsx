@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { useWallet } from "../context/WalletContext";
-import ScrollingLogoBanner from "@/components/ScrollingLogo";
 
 const fetchUserScore = async (walletAddress: string) => {
   try {
@@ -131,8 +130,7 @@ export default function GamePage() {
   }, [walletAddress, freeAttemptsToday]);
 
   return (
-    <div className="relative flex items-center justify-center min-h-[93vh] bg-gray-100 p-4 bg-[url('/backgroud.png')] bg-cover bg-center bg-no-repeat">
-      <ScrollingLogoBanner />
+    <div className="relative flex items-center justify-center min-h-[93vh] bg-gray-100 px-4 bg-[url('/backgroud.png')] bg-cover bg-center bg-no-repeat">
       <main className="flex-1 container py-6">
         <motion.div
           className="grid gap-6 lg:grid-cols-[1fr_300px]"
@@ -140,7 +138,7 @@ export default function GamePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="flex flex-col space-y-6">
+          <div className="flex flex-col space-y-4">
             <div className="flex flex-col space-y-1 ml-8">
               <h1 className="text-3xl font-bold tracking-tight">跳格子游戏</h1>
               <p className="text-muted-foreground">探索生态世界，收集奖励</p>
@@ -189,7 +187,7 @@ export default function GamePage() {
               <CardContent>
                 <ul className="list-disc pl-4 space-y-2 text-sm text-muted-foreground">
                   <li>点击“摇骰子”按钮来移动</li>
-                  <li>红色格子为惊喜格子，可能获得特殊奖励</li>
+                  <li>彩色格子为惊喜格子，可能获得特殊奖励</li>
                   <li>白色格子为普通格子</li>
                   <li>按照蛇形路径前进到第100个格子即可获胜！</li>
                 </ul>

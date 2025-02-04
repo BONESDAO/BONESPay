@@ -25,8 +25,8 @@ export function RewardDialog({ isOpen, onClose, cellNumber, cellType, reward }: 
                 <DialogTitle>{cellType === "surprise" ? "惊喜格子！" : "普通格子"}</DialogTitle>
                 <DialogDescription>
                   {cellType === "surprise"
-                    ? `恭喜获得 ${reward} 奖励！您获得了 ${cellNumber} 积分！`
-                    : `谢谢惠顾！您获得了 1 积分！`}
+                    ? `恭喜获得 ${reward} 奖励！您获得了 ${cellNumber} 积分 ！`
+                    : `您获得了 ${cellNumber} 积分 !`}
                 </DialogDescription>
               </DialogHeader>
             </motion.div>
