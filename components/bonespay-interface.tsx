@@ -491,7 +491,6 @@ export function BONESPayInterface() {
         </DropdownMenuContent>
       </DropdownMenu>
       <a href="./pages/pools" className="text-sm font-medium">Pools</a>
-      <a href="./pages/quant" className="text-sm font-medium">Quant</a>
       <a href="./event" className="text-sm font-medium">Event</a>
           </nav>
         </div>

@@ -15,11 +15,22 @@ const TOKEN_CONTRACTS = {
   USDC: '0xdA396A3C7FC762643f658B47228CD51De6cE936d'
 }
 
+// 更新 TOKEN_ABI 以包含更多必要的函数
 const TOKEN_ABI = [
-  'function balanceOf(address owner) view returns (uint256)',
-  'function transfer(address to, uint256 amount) returns (bool)',
-  'function decimals() view returns (uint8)'
-]
+  // 基本 ERC20 函数
+  'function name() view returns (string)',
+  'function symbol() view returns (string)',
+  'function decimals() view returns (uint8)',
+  'function totalSupply() view returns (uint256)',
+  'function balanceOf(address account) view returns (uint256)',
+  'function transfer(address recipient, uint256 amount) returns (bool)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function transferFrom(address sender, address recipient, uint256 amount) returns (bool)',
+  // 事件
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+  'event Approval(address indexed owner, address indexed spender, uint256 value)'
+];
 
 const RECIPIENT_ADDRESS = '0x37F02c567869F5729594Aa6261C9c3459D077e04'
 
@@ -35,33 +46,90 @@ export function CryptoPayment({ planName, amount, onBack, onSuccess }: CryptoPay
   const [isProcessing, setIsProcessing] = useState(false)
   const [balance, setBalance] = useState<string>('0')
 
-  // 检查代币余额
+  // 检查代币余额的函数
   const checkBalance = async () => {
+    if (!window.ethereum) {
+      toast.error('请安装 MetaMask')
+      return
+    }
+
     try {
       const provider = new ethers.providers.Web3Provider(window.ethereum)
+      
+      // 请求连接钱包
       await provider.send("eth_requestAccounts", [])
+      
+      // 确保连接到 PlatON 网络
+      const network = await provider.getNetwork()
+      if (network.chainId !== 210425) {
+        toast.error('请切换到 PlatON 网络')
+        return
+      }
+
       const signer = provider.getSigner()
       const address = await signer.getAddress()
 
+      // 验证合约地址
+      const contractAddress = TOKEN_CONTRACTS[selectedToken]
+      const code = await provider.getCode(contractAddress)
+      
+      if (code === '0x') {
+        console.error('Invalid contract address')
+        toast.error('无效的代币合约地址')
+        return
+      }
+
+      // 创建合约实例
       const tokenContract = new ethers.Contract(
-        TOKEN_CONTRACTS[selectedToken],
+        contractAddress,
         TOKEN_ABI,
         provider
       )
 
-      const decimals = await tokenContract.decimals()
-      const balance = await tokenContract.balanceOf(address)
-      const formattedBalance = ethers.utils.formatUnits(balance, decimals)
-      setBalance(formattedBalance)
+      try {
+        // 先检查合约是否有效
+        const symbol = await tokenContract.symbol()
+        console.log('Token Symbol:', symbol)
+
+        // 获取代币精度
+        const decimals = await tokenContract.decimals()
+        console.log('Token Decimals:', decimals)
+
+        // 获取余额
+        const balance = await tokenContract.balanceOf(address)
+        console.log('Raw Balance:', balance.toString())
+
+        const formattedBalance = ethers.utils.formatUnits(balance, decimals)
+        console.log('Formatted Balance:', formattedBalance)
+
+        setBalance(formattedBalance)
+      } catch (error) {
+        console.error('Contract call error:', error)
+        setBalance('0')
+        toast.error('无法获取代币余额，请确认合约地址正确')
+      }
     } catch (error) {
       console.error('Balance check error:', error)
-      toast.error('无法检查余额')
+      setBalance('0')
+      toast.error('无法连接钱包或网络错误')
     }
   }
 
-  // 当选择的代币改变时检查余额
+  // 在组件中使用
   useEffect(() => {
-    checkBalance()
+    let mounted = true
+
+    const init = async () => {
+      if (mounted) {
+        await checkBalance()
+      }
+    }
+
+    init()
+
+    return () => {
+      mounted = false
+    }
   }, [selectedToken])
 
   const handlePayment = async () => {
