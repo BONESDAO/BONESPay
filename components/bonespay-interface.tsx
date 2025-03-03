@@ -275,6 +275,65 @@ export function BONESPayInterface() {
     }
   }
 
+  const handleERC20Transfer = async (tokenAddress, recipient, amount) => {
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      await provider.send("eth_requestAccounts", []);
+      
+      const signer = provider.getSigner();
+      const fromAddress = await signer.getAddress();
+      
+      // 使用正确的 ERC20 ABI
+      const tokenContract = new ethers.Contract(
+        tokenAddress,
+        [
+          // 最小化的 ERC20 ABI
+          "function decimals() view returns (uint8)",
+          "function balanceOf(address owner) view returns (uint256)",
+          "function transfer(address to, uint256 value) returns (bool)",
+          "function allowance(address owner, address spender) view returns (uint256)",
+          "function approve(address spender, uint256 value) returns (bool)"
+        ],
+        signer
+      );
+      
+      // 获取代币精度
+      const decimals = await tokenContract.decimals();
+      console.log("Token decimals:", decimals);
+      
+      // 格式化金额为 Wei (使用正确的精度)
+      const tokenAmount = ethers.utils.parseUnits(amount.toString(), decimals);
+      console.log("Token amount in Wei:", tokenAmount.toString());
+      
+      // 检查余额
+      const balance = await tokenContract.balanceOf(fromAddress);
+      if (balance.lt(tokenAmount)) {
+        throw new Error("余额不足");
+      }
+      
+      // 发送交易
+      const tx = await tokenContract.transfer(recipient, tokenAmount);
+      console.log("Transaction sent:", tx?.hash || "交易对象为空");
+      
+      // 添加适当的检查
+      if (!tx) {
+        throw new Error("交易创建失败");
+      }
+      
+      // 等待交易确认
+      const receipt = await tx.wait();
+      console.log("Transaction confirmed:", receipt);
+      
+      return {
+        success: true,
+        hash: tx.hash
+      };
+    } catch (error) {
+      console.error("ERC20 transfer error:", error);
+      throw error;
+    }
+  };
+
   const handleTransfer = async () => {
     if (!account || !recipient || !amount) return
 
@@ -299,31 +358,41 @@ export function BONESPayInterface() {
         })
       } else {
         const tokenAddress = TOKEN_ADDRESSES[selectedAsset as keyof typeof TOKEN_ADDRESSES]
-        const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer)
-        const decimals = await contract.decimals()
-        const amountWei = parseUnits(amount, decimals)
-        tx = await contract.transfer(recipientHex, amountWei)
+        const result = await handleERC20Transfer(tokenAddress, recipientHex, amount)
+        
+        if (result.success) {
+          toast.success('代币转账成功!')
+          setTransferStatus('success')
+          setAmount('')
+          setRecipient('')
+          await fetchBalances(account)
+          router.refresh()
+        }
       }
 
-      await tx.wait()
-
-      const response = await fetch('/api/recordTransfer', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount,
-          asset: selectedAsset,
-          sender: account,
-          recipient: recipientHex,
-          txHash: tx.hash,
-          timestamp: new Date().toISOString(),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to record transfer')
+      if (tx && tx.hash) {
+        try {
+          const response = await fetch('/api/recordTransfer', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              amount,
+              asset: selectedAsset,
+              sender: account,
+              recipient: recipientHex,
+              txHash: tx.hash,
+              timestamp: new Date().toISOString(),
+            }),
+          });
+          
+          if (!response.ok) {
+            console.error('Failed to record transfer');
+          }
+        } catch (recordError) {
+          console.error('Error recording transfer:', recordError);
+        }
       }
 
       setTransferStatus('success')
