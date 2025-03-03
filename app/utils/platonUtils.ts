@@ -24,9 +24,29 @@ export function hexStrBuf(hexStr: string): Buffer {
   return Buffer.from(hexStr.replace(/^0x/, ''), 'hex');
 }
 
+/**
+ * 从 EVM 地址转换为 Bech32 地址
+ * @param hrp 人类可读前缀，例如 'lat'
+ * @param address 0x 开头的 EVM 地址
+ */
 export function toBech32Address(hrp: string, address: string): string {
   const words = bech32.toWords(Buffer.from(address.replace(/^0x/, ''), 'hex'));
   return bech32.encode(hrp, words);
+}
+
+/**
+ * 从 Bech32 地址转换为 EVM 地址
+ * @param address Bech32 格式地址，例如 lat1xxx...
+ */
+export function fromBech32Address(address: string): string {
+  try {
+    const decoded = bech32.decode(address);
+    const hexAddress = "0x" + Buffer.from(bech32.fromWords(decoded.words)).toString('hex');
+    return hexAddress;
+  } catch (error) {
+    console.error('Bech32 address decoding error:', error);
+    throw new Error('无效的 Bech32 地址格式');
+  }
 }
 
 /**
