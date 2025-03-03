@@ -29,6 +29,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ChevronDown } from 'lucide-react'
+import { fromBech32Address } from '@/app/utils/platonUtils'
+import bech32 from 'bech32'
 
 
 
@@ -235,6 +237,44 @@ export function BONESPayInterface() {
     }
   }
 
+  const convertLatToHexAddress = (address: string): string => {
+    try {
+      if (!address) {
+        console.error('Empty address provided to converter');
+        throw new Error('地址不能为空');
+      }
+      
+      console.log('Converting address:', address, 'Type:', typeof address);
+      
+      if (typeof address === 'string' && address.trim().startsWith('lat')) {
+        try {
+          const decoded = bech32.decode(address.trim());
+          const hexBuffer = Buffer.from(bech32.fromWords(decoded.words));
+          const hexAddress = "0x" + hexBuffer.toString('hex');
+          console.log('Converted to hex address:', hexAddress);
+          return hexAddress;
+        } catch (conversionError) {
+          console.error('PlatON address conversion failed:', conversionError);
+          throw new Error('LAT地址格式无效');
+        }
+      }
+      
+      if (typeof address === 'string' && address.trim().startsWith('0x')) {
+        if (address.trim().length !== 42) {
+          console.error('Invalid hex address length:', address.trim().length);
+          throw new Error('地址长度无效');
+        }
+        return address.trim();
+      }
+      
+      console.error('Address format not recognized:', address);
+      throw new Error('地址格式无效');
+    } catch (error) {
+      console.error('Address conversion error:', error);
+      throw error;
+    }
+  }
+
   const handleTransfer = async () => {
     if (!account || !recipient || !amount) return
 
@@ -247,11 +287,14 @@ export function BONESPayInterface() {
       const provider = new Web3Provider(window.ethereum)
       const signer = provider.getSigner()
 
+      const recipientHex = convertLatToHexAddress(recipient)
+      console.log('Using address for transfer:', recipient, '->', recipientHex)
+
       let tx;
       if (selectedAsset === 'LAT') {
         const amountWei = parseEther(amount)
         tx = await signer.sendTransaction({
-          to: recipient,
+          to: recipientHex,
           value: amountWei
         })
       } else {
@@ -259,7 +302,7 @@ export function BONESPayInterface() {
         const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer)
         const decimals = await contract.decimals()
         const amountWei = parseUnits(amount, decimals)
-        tx = await contract.transfer(recipient, amountWei)
+        tx = await contract.transfer(recipientHex, amountWei)
       }
 
       await tx.wait()
@@ -273,7 +316,7 @@ export function BONESPayInterface() {
           amount,
           asset: selectedAsset,
           sender: account,
-          recipient,
+          recipient: recipientHex,
           txHash: tx.hash,
           timestamp: new Date().toISOString(),
         }),
